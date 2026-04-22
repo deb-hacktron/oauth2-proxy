@@ -700,7 +700,7 @@ func (p *OAuthProxy) IsAllowedRequest(req *http.Request) bool {
 // IsAllowedRoute is used to check if the request method & path is allowed without auth
 func (p *OAuthProxy) isAllowedRoute(req *http.Request) bool {
 	for _, route := range p.allowedRoutes {
-		if (route.method == "" || req.Method == route.method) && route.pathRegex.MatchString(req.URL.Path) {
+		if (route.method == "" || req.Method == route.method) && route.pathRegex.MatchString(util.GetRequestURI(req)) {
 			return true
 		}
 	}
