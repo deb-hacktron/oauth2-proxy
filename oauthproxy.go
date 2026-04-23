@@ -27,6 +27,7 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/cookies"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/encryption"
 	proxyhttp "github.com/oauth2-proxy/oauth2-proxy/v7/pkg/http"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/util"
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/ip"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
@@ -1080,13 +1081,98 @@ func authOnlyAuthorize(req *http.Request, s *sessionsapi.SessionState) bool {
 		return true
 	}
 
-	for _, key := range []string{"allowed_groups", "allowed_email_domains", "allowed_emails"} {
-		if len(req.URL.Query()[key]) > 0 {
+	constraints := []func(*http.Request, *sessionsapi.SessionState) bool{
+		checkAllowedGroups,
+		checkAllowedEmailDomains,
+		checkAllowedEmails,
+	}
+
+	for _, constraint := range constraints {
+		if !constraint(req, s) {
 			return false
 		}
 	}
 
 	return true
+}
+
+// extractAllowedEntities aims to extract and split allowed entities linked by a key,
+// from an HTTP request query. Output is a map[string]struct{} where keys are valuable,
+// the goal is to avoid time complexity O(N^2) while finding matches during membership checks.
+func extractAllowedEntities(req *http.Request, key string) map[string]struct{} {
+	entities := map[string]struct{}{}
+
+	query := req.URL.Query()
+	for _, allowedEntities := range query[key] {
+		for _, entity := range strings.Split(allowedEntities, ",") {
+			if entity != "" {
+				entities[entity] = struct{}{}
+			}
+		}
+	}
+
+	return entities
+}
+
+// checkAllowedEmailDomains allow email domain restrictions based on the `allowed_email_domains`
+// querystring parameter
+func checkAllowedEmailDomains(req *http.Request, s *sessionsapi.SessionState) bool {
+	allowedEmailDomains := extractAllowedEntities(req, "allowed_email_domains")
+	if len(allowedEmailDomains) == 0 {
+		return true
+	}
+
+	splitEmail := strings.Split(s.Email, "@")
+	if len(splitEmail) != 2 {
+		return false
+	}
+
+	endpoint, _ := url.Parse("")
+	endpoint.Host = splitEmail[1]
+
+	allowedEmailDomainsList := []string{}
+	for ed := range allowedEmailDomains {
+		allowedEmailDomainsList = append(allowedEmailDomainsList, ed)
+	}
+
+	return util.IsEndpointAllowed(endpoint, allowedEmailDomainsList)
+}
+
+// checkAllowedGroups allow secondary group restrictions based on the `allowed_groups`
+// querystring parameter
+func checkAllowedGroups(req *http.Request, s *sessionsapi.SessionState) bool {
+	allowedGroups := extractAllowedEntities(req, "allowed_groups")
+	if len(allowedGroups) == 0 {
+		return true
+	}
+
+	for _, group := range s.Groups {
+		if _, ok := allowedGroups[group]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+// checkAllowedEmails allow email restrictions based on the `allowed_emails`
+// querystring parameter
+func checkAllowedEmails(req *http.Request, s *sessionsapi.SessionState) bool {
+	allowedEmails := extractAllowedEntities(req, "allowed_emails")
+	if len(allowedEmails) == 0 {
+		return true
+	}
+
+	allowed := false
+
+	for email := range allowedEmails {
+		if email == s.Email {
+			allowed = true
+			break
+		}
+	}
+
+	return allowed
 }
 
 // encodedState builds the OAuth state param out of our nonce and
