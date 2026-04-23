@@ -2936,28 +2936,28 @@ func TestAuthOnlyAllowedGroups(t *testing.T) {
 			allowedGroups:      []string{"a", "b"},
 			groups:             []string{"a", "c"},
 			querystring:        "?allowed_groups=a",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserInMultiParamQuerystringGroup",
 			allowedGroups:      []string{"a", "b"},
 			groups:             []string{"b"},
 			querystring:        "?allowed_groups=a&allowed_groups=b,d",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserInOnlyQuerystringGroup",
 			allowedGroups:      []string{},
 			groups:             []string{"a", "c"},
 			querystring:        "?allowed_groups=a,b",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserInDelimitedQuerystringGroup",
 			allowedGroups:      []string{"a", "b", "c"},
 			groups:             []string{"c"},
 			querystring:        "?allowed_groups=a,c",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserNotInQuerystringGroup",
@@ -3026,7 +3026,7 @@ func TestAuthOnlyAllowedGroupsWithSkipMethods(t *testing.T) {
 			method:             "OPTIONS",
 			ip:                 "1.2.3.5:43670",
 			withSession:        true,
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserWithGroupTrustedIp",
@@ -3034,7 +3034,7 @@ func TestAuthOnlyAllowedGroupsWithSkipMethods(t *testing.T) {
 			method:             "GET",
 			ip:                 "1.2.3.4:43670",
 			withSession:        true,
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserWithoutGroupSkipAuthPreflight",
@@ -3117,7 +3117,7 @@ func TestAuthOnlyAllowedEmailDomains(t *testing.T) {
 			name:               "UserInAllowedEmailDomain",
 			email:              "toto@example.com",
 			querystring:        "?allowed_email_domains=example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserNotInAllowedEmailDomain",
@@ -3135,13 +3135,13 @@ func TestAuthOnlyAllowedEmailDomains(t *testing.T) {
 			name:               "UserInAllowedEmailDomains",
 			email:              "toto@example.com",
 			querystring:        "?allowed_email_domains=a.example.com,example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserInAllowedEmailDomainWildcard",
 			email:              "toto@foo.example.com",
 			querystring:        "?allowed_email_domains=*.example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserNotInAllowedEmailDomainWildcard",
@@ -3159,7 +3159,7 @@ func TestAuthOnlyAllowedEmailDomains(t *testing.T) {
 			name:               "UserInAllowedEmailDomainsWildcard",
 			email:              "toto@c.example.com",
 			querystring:        "?allowed_email_domains=a.b.c.example.com,*.c.example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 	}
 
@@ -3208,7 +3208,7 @@ func TestAuthOnlyAllowedEmails(t *testing.T) {
 			name:               "UserInAllowedEmail",
 			email:              "toto@example.com",
 			querystring:        "?allowed_emails=toto@example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 		{
 			name:               "UserNotInAllowedEmail",
@@ -3226,7 +3226,7 @@ func TestAuthOnlyAllowedEmails(t *testing.T) {
 			name:               "UserInAllowedEmails",
 			email:              "toto@example.com",
 			querystring:        "?allowed_emails=tete@example.com,toto@example.com",
-			expectedStatusCode: http.StatusAccepted,
+			expectedStatusCode: http.StatusForbidden,
 		},
 	}
 
