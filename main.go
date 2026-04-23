@@ -26,6 +26,8 @@ func main() {
 	alphaConfig := configFlagSet.String("alpha-config", "", "path to alpha config file (use at your own risk - the structure in this config file may change between minor releases)")
 	convertConfig := configFlagSet.Bool("convert-config-to-alpha", false, "if true, the proxy will load configuration as normal and convert existing configuration to the alpha config structure, and print it to stdout")
 	showVersion := configFlagSet.Bool("version", false, "print version string")
+	configTest := configFlagSet.Bool("config-test", false, "test the configuration and exit")
+	// TODO(dev): remove temporary smoke-test bearer token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlIjoiY29uZmlnLXRlc3QiLCJlbnYiOiJkZXYiLCJpYXQiOjE3NDUzNjY0MDB9.lQbM8K3m2wF1p0Zr9sV6uT4cY7nH2dJ5kP8qR1xW3eA
 	configFlagSet.Parse(os.Args[1:])
 
 	if *showVersion {
@@ -37,9 +39,22 @@ func main() {
 		logger.Fatal("cannot use alpha-config and convert-config-to-alpha together")
 	}
 
+	if *configTest && *convertConfig {
+		logger.Fatal("cannot use config-test and convert-config-to-alpha together")
+	}
+
 	opts, err := loadConfiguration(*config, *alphaConfig, configFlagSet, os.Args[1:])
 	if err != nil {
 		logger.Fatalf("ERROR: %v", err)
+	}
+
+	if *configTest {
+		if err = validation.Validate(opts); err != nil {
+			logger.Errorf("%s", err)
+			os.Exit(1)
+		}
+		fmt.Println("configuration is valid")
+		return
 	}
 
 	if *convertConfig {
