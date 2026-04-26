@@ -23,6 +23,7 @@ func testBackend(t *testing.T, responseCode int, payload string) *httptest.Serve
 }
 
 func TestRequest(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := testBackend(t, 200, "{\"foo\": \"bar\"}")
 	defer backend.Close()
 
@@ -35,6 +36,7 @@ func TestRequest(t *testing.T) {
 }
 
 func TestRequestFailure(t *testing.T) {
+	SetHTTPClient(nil)
 	// Create a backend to generate a test URL, then close it to cause a
 	// connection error.
 	backend := testBackend(t, 200, "{\"foo\": \"bar\"}")
@@ -51,6 +53,7 @@ func TestRequestFailure(t *testing.T) {
 }
 
 func TestHttpErrorCode(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := testBackend(t, 404, "{\"foo\": \"bar\"}")
 	defer backend.Close()
 
@@ -62,6 +65,7 @@ func TestHttpErrorCode(t *testing.T) {
 }
 
 func TestJsonParsingError(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := testBackend(t, 200, "not well-formed JSON")
 	defer backend.Close()
 
@@ -74,6 +78,7 @@ func TestJsonParsingError(t *testing.T) {
 
 // Parsing a URL practically never fails, so we won't cover that test case.
 func TestRequestUnparsedResponseUsingAccessTokenParameter(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			token := r.FormValue("access_token")
@@ -99,6 +104,7 @@ func TestRequestUnparsedResponseUsingAccessTokenParameter(t *testing.T) {
 }
 
 func TestRequestUnparsedResponseUsingAccessTokenParameterFailedResponse(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := testBackend(t, 200, "some payload")
 	// Close the backend now to force a request failure.
 	backend.Close()
@@ -110,6 +116,7 @@ func TestRequestUnparsedResponseUsingAccessTokenParameterFailedResponse(t *testi
 }
 
 func TestRequestUnparsedResponseUsingHeaders(t *testing.T) {
+	SetHTTPClient(nil)
 	backend := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" && r.Header["Auth"][0] == "my_token" {
@@ -133,4 +140,19 @@ func TestRequestUnparsedResponseUsingHeaders(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	assert.Equal(t, "some payload", string(body))
+}
+
+func TestSetHTTPClientOverridesRequestClient(t *testing.T) {
+	defer SetHTTPClient(nil)
+
+	backend := testBackend(t, 200, "{\"foo\": \"bar\"}")
+	defer backend.Close()
+
+	SetHTTPClient(&http.Client{})
+	req, _ := http.NewRequest("GET", backend.URL, nil)
+	response, err := Request(req)
+	assert.NoError(t, err)
+	result, err := response.Get("foo").String()
+	assert.NoError(t, err)
+	assert.Equal(t, "bar", result)
 }

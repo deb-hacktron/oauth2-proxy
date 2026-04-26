@@ -108,5 +108,23 @@ var _ = Describe("HealthCheck suite", func() {
 			expectedStatus: 404,
 			expectedBody:   "404 page not found\n",
 		}),
+		Entry("with an empty configured health check user agent and no request user agent", &requestTableInput{
+			healthCheckPaths:      []string{"/ping"},
+			healthCheckUserAgents: []string{""},
+			requestString:         "http://example.com/abc",
+			headers:               map[string]string{},
+			expectedStatus:        404,
+			expectedBody:          "404 page not found\n",
+		}),
+		Entry("with an explicit empty request user agent", &requestTableInput{
+			healthCheckPaths:      []string{"/ping"},
+			healthCheckUserAgents: []string{"GoogleHC/1.0"},
+			requestString:         "http://example.com/abc",
+			headers: map[string]string{
+				"User-Agent": "",
+			},
+			expectedStatus: 404,
+			expectedBody:   "404 page not found\n",
+		}),
 	)
 })

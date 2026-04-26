@@ -19,6 +19,9 @@ const (
 	// Cookies are limited to 4kb including the length of the cookie name,
 	// the cookie name can be up to 256 bytes
 	maxCookieLength = 3840
+	// Allow far more split cookies than a normal session needs while bounding
+	// attacker-controlled reconstruction work.
+	maxCookieParts = 16
 )
 
 // Ensure CookieSessionStore implements the interface
@@ -172,13 +175,16 @@ func loadCookie(req *http.Request, cookieName string) (*http.Cookie, error) {
 	cookies := []*http.Cookie{}
 	err = nil
 	count := 0
-	for err == nil {
+	for err == nil && count < maxCookieParts {
 		var c *http.Cookie
 		c, err = req.Cookie(fmt.Sprintf("%s_%d", cookieName, count))
 		if err == nil {
 			cookies = append(cookies, c)
 			count++
 		}
+	}
+	if count == maxCookieParts && err == nil {
+		return nil, fmt.Errorf("too many cookie parts for %s", cookieName)
 	}
 	if len(cookies) == 0 {
 		return nil, fmt.Errorf("could not find cookie %s", cookieName)

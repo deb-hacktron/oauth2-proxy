@@ -23,6 +23,9 @@ func healthCheck(paths, userAgents []string, next http.Handler) http.Handler {
 	// Use a map as a set to check health check paths
 	userAgentSet := make(map[string]struct{})
 	for _, userAgent := range userAgents {
+		if userAgent == "" {
+			continue
+		}
 		userAgentSet[userAgent] = struct{}{}
 	}
 
@@ -41,7 +44,11 @@ func isHealthCheckRequest(paths, userAgents map[string]struct{}, req *http.Reque
 	if _, ok := paths[req.URL.EscapedPath()]; ok {
 		return true
 	}
-	if _, ok := userAgents[req.Header.Get("User-Agent")]; ok {
+	userAgent := req.Header.Get("User-Agent")
+	if userAgent == "" {
+		return false
+	}
+	if _, ok := userAgents[userAgent]; ok {
 		return true
 	}
 	return false

@@ -4,6 +4,8 @@ import (
 	"crypto"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/oauth2-proxy/oauth2-proxy/pkg/apis/options"
+	"github.com/oauth2-proxy/oauth2-proxy/pkg/requests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -127,6 +130,36 @@ func TestGoogleGroupInvalidFile(t *testing.T) {
 func TestInitializedOptions(t *testing.T) {
 	o := testOptions()
 	assert.Equal(t, nil, Validate(o))
+}
+
+func TestSSLInsecureSkipVerifyDoesNotMutateDefaultClient(t *testing.T) {
+	originalDefaultClient := http.DefaultClient
+	requests.SetHTTPClient(nil)
+	defer requests.SetHTTPClient(nil)
+
+	backend := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"issuer":"ok"}`))
+	}))
+	defer backend.Close()
+
+	o := testOptions()
+	o.SSLInsecureSkipVerify = true
+
+	req, err := http.NewRequest(http.MethodGet, backend.URL, nil)
+	assert.NoError(t, err)
+
+	_, err = requests.Request(req)
+	assert.Error(t, err)
+
+	assert.NoError(t, Validate(o))
+	assert.Same(t, originalDefaultClient, http.DefaultClient)
+
+	body, err := requests.Request(req)
+	assert.NoError(t, err)
+	value, err := body.Get("issuer").String()
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", value)
 }
 
 // Note that it's not worth testing nonparseable URLs, since url.Parse()

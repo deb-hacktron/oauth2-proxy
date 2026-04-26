@@ -33,7 +33,9 @@ func Validate(o *options.Options) error {
 		insecureTransport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		http.DefaultClient = &http.Client{Transport: insecureTransport}
+		requests.SetHTTPClient(&http.Client{Transport: insecureTransport})
+	} else {
+		requests.SetHTTPClient(nil)
 	}
 
 	msgs := make([]string, 0)

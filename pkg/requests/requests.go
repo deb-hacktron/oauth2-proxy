@@ -11,9 +11,21 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/pkg/logger"
 )
 
+var httpClient = http.DefaultClient
+
+// SetHTTPClient sets the HTTP client used by the requests package.
+// Passing nil restores the default client.
+func SetHTTPClient(client *http.Client) {
+	if client == nil {
+		httpClient = http.DefaultClient
+		return
+	}
+	httpClient = client
+}
+
 // Request parses the request body into a simplejson.Json object
 func Request(req *http.Request) (*simplejson.Json, error) {
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Printf("%s %s %s", req.Method, req.URL, err)
 		return nil, err
@@ -42,7 +54,7 @@ func Request(req *http.Request) (*simplejson.Json, error) {
 
 // RequestJSON parses the request body into the given interface
 func RequestJSON(req *http.Request, v interface{}) error {
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Printf("%s %s %s", req.Method, req.URL, err)
 		return err
@@ -70,5 +82,5 @@ func RequestUnparsedResponse(ctx context.Context, url string, header http.Header
 	}
 	req.Header = header
 
-	return http.DefaultClient.Do(req)
+	return httpClient.Do(req)
 }
