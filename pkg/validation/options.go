@@ -33,7 +33,9 @@ func Validate(o *options.Options) error {
 		insecureTransport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		http.DefaultClient = &http.Client{Transport: insecureTransport}
+		requests.SetHTTPClient(&http.Client{Transport: insecureTransport})
+	} else {
+		requests.SetHTTPClient(nil)
 	}
 
 	msgs := make([]string, 0)
@@ -264,7 +266,7 @@ func Validate(o *options.Options) error {
 
 	msgs = parseSignatureKey(o, msgs)
 	msgs = validateCookieName(o, msgs)
-	msgs = configureLogger(o.Logging, o.PingPath, msgs)
+	msgs = configureLogger(o.Logging, msgs)
 
 	if o.ReverseProxy {
 		parser, err := ip.GetRealClientIPParser(o.RealClientIPHeader)

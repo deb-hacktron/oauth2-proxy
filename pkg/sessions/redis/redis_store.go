@@ -198,12 +198,18 @@ func (store *SessionStore) loadSessionFromString(ctx context.Context, value stri
 	if err != nil {
 		return nil, err
 	}
-	// Use secret as the IV too, because each entry has it's own key
-	stream := cipher.NewCFBDecrypter(block, ticket.Secret)
-	stream.XORKeyStream(resultBytes, resultBytes)
+	session, err := decodeSessionStateWithIV(resultBytes, block, store.CookieCipher)
+	if err == nil {
+		return session, nil
+	}
 
-	session, err := sessions.DecodeSessionState(string(resultBytes), store.CookieCipher)
-	if err != nil {
+	legacyBytes := make([]byte, len(resultBytes))
+	copy(legacyBytes, resultBytes)
+	stream := cipher.NewCFBDecrypter(block, ticket.Secret)
+	stream.XORKeyStream(legacyBytes, legacyBytes)
+
+	session, legacyErr := sessions.DecodeSessionState(string(legacyBytes), store.CookieCipher)
+	if legacyErr != nil {
 		return nil, err
 	}
 	return session, nil
@@ -269,15 +275,20 @@ func (store *SessionStore) storeValue(ctx context.Context, value string, expirat
 		return "", fmt.Errorf("error getting ticket: %v", err)
 	}
 
-	ciphertext := make([]byte, len(value))
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return "", fmt.Errorf("error creating initialization vector: %v", err)
+	}
+
+	ciphertext := make([]byte, aes.BlockSize+len(value))
+	copy(ciphertext, iv)
 	block, err := aes.NewCipher(ticket.Secret)
 	if err != nil {
 		return "", fmt.Errorf("error initiating cipher block %s", err)
 	}
 
-	// Use secret as the Initialization Vector too, because each entry has it's own key
-	stream := cipher.NewCFBEncrypter(block, ticket.Secret)
-	stream.XORKeyStream(ciphertext, []byte(value))
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(value))
 
 	handle := ticket.asHandle(store.CookieOptions.Name)
 	err = store.Client.Set(ctx, handle, ciphertext, expiration)
@@ -285,6 +296,21 @@ func (store *SessionStore) storeValue(ctx context.Context, value string, expirat
 		return "", err
 	}
 	return ticket.encodeTicket(store.CookieOptions.Name), nil
+}
+
+func decodeSessionStateWithIV(ciphertext []byte, block cipher.Block, cookieCipher encryption.Cipher) (*sessions.SessionState, error) {
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	iv := ciphertext[:aes.BlockSize]
+	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
+	copy(plaintext, ciphertext[aes.BlockSize:])
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(plaintext, plaintext)
+
+	return sessions.DecodeSessionState(string(plaintext), cookieCipher)
 }
 
 // getTicket retrieves an existing ticket from the cookie if present,
